@@ -10,11 +10,8 @@ Promise.all([
     faceapi.nets.faceLandmark68Net.loadFromUri('models/'),
     faceapi.nets.faceRecognitionNet.loadFromUri('models/'),
     faceapi.nets.faceExpressionNet.loadFromUri('models/')
-]).then(() => {
-    // startButton.disabled = false;
-});
+])
 
-// set loading message and start the video
 setTimeout(() => {
     startVideo();
 }, 1000);
@@ -28,25 +25,31 @@ function startVideo() {
 
     video.addEventListener('play', async () => {
         const canvas = faceapi.createCanvasFromMedia(video);
+        canvas.style.width = '700px';
+        canvas.style.height = '600px';
+        canvas.style.position = 'absolute';
         document.body.append(canvas);
-        const displaySize = { width: video.width, height: video.height };
+        const displaySize = { width: 400, height: 400 };
         faceapi.matchDimensions(canvas, displaySize);
-    
+
         const interval = setInterval(async () => {
-            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceExpressions();
+            const detections = await faceapi
+                .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                .withFaceLandmarks();
             const resizedDetections = faceapi.resizeResults(detections, displaySize);
-    
+            const response = await fetch('/should-capture');
+            const shouldCapture = await response.json();
+
             canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
             faceapi.draw.drawDetections(canvas, resizedDetections);
-            faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
-            // faceapi.draw.drawFaceExpressions(canvas, resizedDetections);
-    
-            if (detections.length > 0 && !isCapturing) {
+
+            if (detections.length > 0 && shouldCapture.capture && !isCapturing) {
                 captureImage();
             }
         }, 1000);
     });
 }
+
 
 function captureImage() {
     isCapturing = true;
@@ -55,6 +58,12 @@ function captureImage() {
     canvas.height = video.videoHeight;
     const context = canvas.getContext('2d');
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    navigator.geolocation.getCurrentPosition(
+        position => {
+            
+        }
+    )
 
     canvas.toBlob(blob => {
         const now = new Date();
@@ -72,15 +81,12 @@ function captureImage() {
         .then(data => {
             console.log(data);
             if(data.face_found_in_image) {
-                // loop data.face_names
                 data.face_names.forEach(name => {
                     console.log(name);
                     const toastLiveExample = document.getElementById('liveToast');
                     const toast = new bootstrap.Toast(toastLiveExample);
                     toast.show();
-                    // nameSpan
                     const nameSpan = document.getElementById('nameSpan');
-                    // convert to string
                     nameSpan.textContent = name.name;
                 });
             }

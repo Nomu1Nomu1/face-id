@@ -7,16 +7,16 @@ const fs = require("fs");
 const path = require("path");
 const Sequelize = require("sequelize")
 const DataTypes = require("sequelize");
+const schedule = require('node-schedule');
+const { type } = require('os');
 const app = express();
 const port = process.env.PORT || 3050;
 
-// Connect Database
 const db = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.DB_PASS, {
   host: process.env.DB_HOST,
   dialect: 'mysql'
 })
 
-// Config Database
 const Data = db.define('logs', {
   name: {
     type: DataTypes.TEXT,
@@ -33,6 +33,14 @@ const Data = db.define('logs', {
   is_valid: {
     type: DataTypes.ENUM('0', '1'),
     allowNull: false
+  },
+  latitude: {
+    type: DataTypes.DECIMAL(10, 8),
+    allowNull: false
+  },
+  longitude: {
+    type: DataTypes.DECIMAL(11, 8),
+    allowNull: false
   }
 })
 
@@ -45,13 +53,38 @@ const storage = multer.diskStorage({
   },
 });
 
+let shoudlCapture = false;
+
+schedule.scheduleJob('0 8 * * *', () => {
+  console.log('Captured at 8 AM')
+  shoudlCapture = true;
+  resetCapture();
+})
+
+schedule.scheduleJob('0 16 * * *', () => {
+  console.log('Captured at 4 PM')
+  shoudlCapture = true;
+  resetCapture();
+})
+
+function resetCapture() {
+  setTimeout(() => {
+    shoudlCapture = false;
+  }, 10000)
+}
+
 const upload = multer({ storage: storage });
 
 app.use(express.static("public"));
 app.use('/images', express.static(path.join(__dirname, 'images')));
 
+app.get("/should-capture", (req, res) => {
+  res.json({ capture: shoudlCapture });
+})
+
 app.post("/upload", upload.single("image"), async (req, res) => {
-  // take the image from the temp folder ...
+  const { latitude, longitude } = req.body;
+  
   const image = path.join(__dirname, "temp", req.file.originalname);
 
   const form = new FormData();
@@ -65,18 +98,18 @@ app.post("/upload", upload.single("image"), async (req, res) => {
         },
       })
       .then((response) => {
-        // check face found image
+        
         if (response.data.face_found_in_image) {
-          // check if the face is exist in the database in this day, if not create a new record
-          // crete a new record in the database
           Data.create({
             name: JSON.stringify(response.data.face_names),
             img: req.file.originalname,
             timeStamp: new Date(),
-            is_valid: '0'
-          })
+            is_valid: '0',
+            latitude: parseFloat(latitude),
+            longitude: parseFloat(longitude)
+          });
         }
-        // delete all the images in the temp folder
+        
         fs.readdir("temp", (err, files) => {
           if (err) throw err;
           for (const file of files) {
@@ -88,7 +121,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
         res.json(response.data);
       });
   } catch (error) {
-    // delete all the images in the temp folder
+    
     fs.readdir("temp", (err, files) => {
       if (err) throw err;
       for (const file of files) {

@@ -7,7 +7,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 app = Flask(__name__)
 # Remove :password to connect my own sql
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root@localhost/face_recognition_db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root@localhost/db_face_recognition'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -123,6 +123,7 @@ def list_users():
         user_list = []
         for user in users:
             user_info = {
+                "id": user.id,
                 "name": user.name,
                 "encoding_count": len(user.encodings)
             }
@@ -146,5 +147,5 @@ def list_users():
 #     return jsonify(accuracy_data)
     
 
-# if __name__ == "__main__":
-#     app.run(host='0.0.0.0', port=5001, debug=True)
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=5001, debug=True)
